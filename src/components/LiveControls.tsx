@@ -4,7 +4,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LiveState, Position } from "@/lib/live";
 import { parseChordPro } from "@/lib/chordpro";
-import Ably from "ably";
+
+declare global {
+  interface Window { Ably?: typeof import("ably") }
+}
+
+let ablyLoader: Promise<typeof import("ably")> | undefined;
+function loadAbly() {
+  if (window.Ably) return Promise.resolve(window.Ably);
+  if (!ablyLoader) ablyLoader = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.ably.com/lib/ably.min-2.30.0.js";
+    script.integrity = "sha384-rEFIsedVIWDtgbXX8tgLdt3FqyhqXcyab7ICHpdt2UErA00K7lzuf2pCsBnygjZ/";
+    script.crossOrigin = "anonymous";
+    script.onload = () => window.Ably ? resolve(window.Ably) : reject(new Error("Ably SDK did not load"));
+    script.onerror = () => reject(new Error("Could not load Ably SDK"));
+    document.head.append(script);
+  });
+  return ablyLoader;
+}
 
 type Membership = { code: string; token?: string };
 
@@ -58,19 +76,24 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
 
   useEffect(() => {
     if (!member || !available) return;
-    const client = new Ably.Realtime({ authUrl: `/api/live/${member.code}/auth/` });
-    const channel = client.channels.get(`tarang:session:${member.code}`, { params: { rewind: "1" } });
     let stopped = false;
-    client.connection.on((change) => {
+    let client: import("ably").Realtime | null = null;
+    setStatus("Connecting…");
+    void loadAbly().then((Ably) => {
       if (stopped) return;
-      setStatus(change.current === "connected" ? "Connected" : change.current === "failed" ? "Connection failed" : "Reconnecting…");
-    });
-    channel.subscribe("state", (message) => {
-      if (stopped) return;
-      const next = message.data as LiveState;
-      if (next?.code === member.code && Number.isFinite(next.seq)) apply(next);
-    });
-    return () => { stopped = true; client.close(); };
+      client = new Ably.Realtime({ authUrl: `/api/live/${member.code}/auth/` });
+      const channel = client.channels.get(`tarang:session:${member.code}`, { params: { rewind: "1" } });
+      client.connection.on((change) => {
+        if (stopped) return;
+        setStatus(change.current === "connected" ? "Connected" : change.current === "failed" ? "Connection failed" : "Reconnecting…");
+      });
+      void channel.subscribe("state", (message) => {
+        if (stopped) return;
+        const next = message.data as LiveState;
+        if (next?.code === member.code && Number.isFinite(next.seq)) apply(next);
+      }).catch(() => { if (!stopped) setStatus("Connection failed"); });
+    }).catch(() => { if (!stopped) setStatus("Connection failed"); });
+    return () => { stopped = true; client?.close(); };
   }, [member, apply, available]);
 
   async function join() {

@@ -1,4 +1,4 @@
-import Ably from "ably/promises";
+import Ably from "ably";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { publishedSongs } from "./songs";
 
