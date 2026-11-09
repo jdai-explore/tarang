@@ -1,2 +1,2 @@
-# tarnag
+# tarang
 music to my soul
