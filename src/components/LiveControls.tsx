@@ -13,6 +13,7 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
   const [codeInput, setCodeInput] = useState("");
   const [state, setState] = useState<LiveState | null>(null);
   const [status, setStatus] = useState("Disconnected");
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [following, setFollowing] = useState(true);
   const [error, setError] = useState("");
   const [showChords, setShowChords] = useState(false);
@@ -22,6 +23,10 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
   const lineElements = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
+    fetch("/api/live/status/", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setAvailable(Boolean(data.available)))
+      .catch(() => setAvailable(false));
     try {
       const saved = localStorage.getItem("tarang-live");
       if (saved) setMember(JSON.parse(saved));
@@ -51,7 +56,7 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
   }, [following, member?.token, router, song]);
 
   useEffect(() => {
-    if (!member) return;
+    if (!member || !available) return;
     let socket: WebSocket | null = null;
     let reconnect: ReturnType<typeof setTimeout>;
     let stopped = false;
@@ -60,7 +65,7 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
       if (stopped) return;
       setStatus("Connecting…");
       const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-      socket = new WebSocket(`${protocol}//${location.host}/api/live/${member.code}/stream`);
+      socket = new WebSocket(`${protocol}//${location.host}/api/live/${member.code}/stream/`);
       socket.onopen = () => { setStatus("Connected"); delay = 1000; };
       socket.onmessage = (event) => {
         try { apply(JSON.parse(event.data)); } catch {}
@@ -75,7 +80,7 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
     };
     connect();
     return () => { stopped = true; clearTimeout(reconnect); socket?.close(); };
-  }, [member, apply]);
+  }, [member, apply, available]);
 
   async function join() {
     const code = codeInput.trim().toUpperCase();
@@ -134,15 +139,17 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
   return <>
     <section className="live-panel" aria-label="Live session">
       <div className="live-title"><strong>Live session</strong>{member && <span role="status">{status}</span>}</div>
-      {!member ? <div className="live-actions">
+      {available === false && <p className="live-note" role="status">Live sessions are not configured yet. You can still read every published song.</p>}
+      {available === null && <p className="live-note" role="status">Checking live session availability…</p>}
+      {available && !member ? <div className="live-actions">
         <input aria-label="Session code" placeholder="6-character code" maxLength={6} value={codeInput} onChange={(event) => setCodeInput(event.target.value)} />
         <button onClick={() => void join()}>Join</button>
         <button onClick={() => void create()}>Start as leader</button>
-      </div> : <div className="live-actions">
+      </div> : available && member ? <div className="live-actions">
         <span>Code: <strong>{member.code}</strong></span>
         {member.token ? <span>Leading</span> : <button onClick={() => setFollowing(!following)}>{following ? "Pause following" : "Resume following"}</button>}
         <button onClick={leave}>Leave</button>
-      </div>}
+      </div> : null}
       {member?.token && <p className="live-note">Keep this browser open as leader. Share only the code with participants.</p>}
       {error && <p className="live-error" role="alert">{error}</p>}
     </section>
