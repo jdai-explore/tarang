@@ -1,0 +1,34 @@
+[
+  {
+    "number": 1,
+    "title": "Tum Hi Ho",
+    "titleHindi": "तुम ही हो",
+    "film": "Aashiqui 2 (2013)",
+    "language": "hi",
+    "lyrics": null
+  },
+  {
+    "number": 2,
+    "title": "Sunn Raha Hai",
+    "titleHindi": "सुन रहा है",
+    "film": "Aashiqui 2 (2013)",
+    "language": "hi",
+    "lyrics": null
+  },
+  {
+    "number": 3,
+    "title": "Chahun Main Ya Naa",
+    "titleHindi": "चाहूँ मैं या ना",
+    "film": "Aashiqui 2 (2013)",
+    "language": "hi",
+    "lyrics": null
+  },
+  {
+    "number": 4,
+    "title": "Milne Hai Mujhse Aayi",
+    "titleHindi": "मिलने है मुझसे आई",
+    "film": "Aashiqui 2 (2013)",
+    "language": "hi",
+    "lyrics": null
+  }
+]
