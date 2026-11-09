@@ -36,7 +36,7 @@ Add optional ChordPro text per song and a viewer that can hide chords. First sup
 1. **Live prototype:** Choose a shared-state service after checking its free-tier connection and message limits. Build leader/follower song selection and position broadcast, reconnect/resync, and protected leader actions.
 2. **Product integration:** Add start/join/leave controls, follow status, resume-following, and an accessible leader control surface. Preserve independent reading.
 3. **ChordPro:** Extend and validate the content schema, render optional chords, and add the reviewed paste-conversion workflow.
-4. **Deployment:** Connect GitHub `main` to Vercel, set service credentials in Vercel, and verify that the production deployment uses `tarang.vercel.app`. Review previews before merging content changes.
+4. **Deployment:** GitHub `main` is connected to Vercel and serves `tarang-gray.vercel.app`. Set live-service credentials in Vercel, verify the production deployment, and review previews before merging content changes.
 5. **Event readiness:** Test Android Chrome, Samsung Internet, and iPhone Safari; varied viewport and text sizes; screen sleep and network changes; leader disconnect/rejoin; and 200–500 connected followers at realistic scroll rates. Measure latency, reconnect time, delivery consistency, and provider usage before deciding on paid capacity.
 
 ## Later possibilities

@@ -12,7 +12,7 @@ Edit `content/songs.json`. Each entry needs a unique positive `number`, a `title
 
 ## Deploy
 
-Import this GitHub repository into Vercel as a Next.js project and set the production branch to `main`. The song pages are statically generated, while `/api/live` uses Vercel Functions. Configure `REDIS_URL` with a TLS-enabled Redis connection that supports pub/sub, then assign `tarang.vercel.app` in Vercel project settings and verify it resolves to production. Review preview deployments before merging content changes. A session leader's private token is stored in that browser's local storage; share only the six-character join code. Sessions expire after eight hours.
+The GitHub `main` branch deploys to the Tarang Vercel project at `tarang-gray.vercel.app`. The song pages are statically generated, while `/api/live` uses Vercel Functions. Configure `REDIS_URL` with a TLS-enabled Redis connection that supports pub/sub before enabling live sessions. Review preview deployments before merging content changes. A session leader's private token is stored in that browser's local storage; share only the six-character join code. Sessions expire after eight hours.
 
 ## Test live coordination
 
