@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LiveState, Position } from "@/lib/live";
 import { parseChordPro } from "@/lib/chordpro";
+import Ably from "ably";
 
 type Membership = { code: string; token?: string };
 
@@ -28,7 +29,7 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
       .then((data) => setAvailable(Boolean(data.available)))
       .catch(() => setAvailable(false));
     try {
-      const saved = localStorage.getItem("tarang-live");
+      const saved = localStorage.getItem("tarang-live-ably");
       if (saved) setMember(JSON.parse(saved));
     } catch {}
     const urlCode = new URLSearchParams(location.search).get("live")?.toUpperCase();
@@ -57,29 +58,19 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
 
   useEffect(() => {
     if (!member || !available) return;
-    let socket: WebSocket | null = null;
-    let reconnect: ReturnType<typeof setTimeout>;
+    const client = new Ably.Realtime({ authUrl: `/api/live/${member.code}/auth/` });
+    const channel = client.channels.get(`tarang:session:${member.code}`, { params: { rewind: "1" } });
     let stopped = false;
-    let delay = 1000;
-    const connect = () => {
+    client.connection.on((change) => {
       if (stopped) return;
-      setStatus("Connecting…");
-      const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-      socket = new WebSocket(`${protocol}//${location.host}/api/live/${member.code}/stream/`);
-      socket.onopen = () => { setStatus("Connected"); delay = 1000; };
-      socket.onmessage = (event) => {
-        try { apply(JSON.parse(event.data)); } catch {}
-      };
-      socket.onclose = () => {
-        setStatus("Reconnecting…");
-        if (!stopped) {
-          reconnect = setTimeout(connect, delay + Math.random() * 500);
-          delay = Math.min(delay * 2, 30000);
-        }
-      };
-    };
-    connect();
-    return () => { stopped = true; clearTimeout(reconnect); socket?.close(); };
+      setStatus(change.current === "connected" ? "Connected" : change.current === "failed" ? "Connection failed" : "Reconnecting…");
+    });
+    channel.subscribe("state", (message) => {
+      if (stopped) return;
+      const next = message.data as LiveState;
+      if (next?.code === member.code && Number.isFinite(next.seq)) apply(next);
+    });
+    return () => { stopped = true; client.close(); };
   }, [member, apply, available]);
 
   async function join() {
@@ -89,7 +80,7 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
     if (!response.ok) { setError("That session is unavailable."); return; }
     latestSeq.current = -1;
     const next = { code };
-    localStorage.setItem("tarang-live", JSON.stringify(next));
+    localStorage.setItem("tarang-live-ably", JSON.stringify(next));
     setMember(next);
     setFollowing(true);
     setError("");
@@ -99,13 +90,13 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
     if (!response.ok) { setError("Could not start a session. Check live service setup."); return; }
     const data = await response.json();
     const next = { code: data.code, token: data.token };
-    localStorage.setItem("tarang-live", JSON.stringify(next));
+    localStorage.setItem("tarang-live-ably", JSON.stringify(next));
     setMember(next);
     setState(data.state);
     setError("");
   }
   function leave() {
-    localStorage.removeItem("tarang-live");
+    localStorage.removeItem("tarang-live-ably");
     latestSeq.current = -1;
     setMember(null);
     setState(null);
@@ -123,7 +114,7 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
     if (!member?.token || song === undefined || !lyrics) return;
     if (state?.song !== song) void send(song, { line: 0, fraction: 0 });
     const onScroll = () => {
-      if (Date.now() - lastSend.current < 300) return;
+      if (Date.now() - lastSend.current < 1200) return;
       lastSend.current = Date.now();
       let line = 0;
       for (let index = 0; index < lineElements.current.length; index++) {
@@ -135,6 +126,12 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => { window.removeEventListener("scroll", onScroll); if (pending.current) clearTimeout(pending.current); };
   }, [member?.token, song, lyrics, state?.song]);
+
+  useEffect(() => {
+    if (!member?.token || !state) return;
+    const heartbeat = setInterval(() => void send(state.song, state.position), 60_000);
+    return () => clearInterval(heartbeat);
+  }, [member?.token, state?.song, state?.position.line, state?.position.fraction]);
 
   return <>
     <section className="live-panel" aria-label="Live session">

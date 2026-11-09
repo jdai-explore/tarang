@@ -8,12 +8,10 @@
     "start": "next start"
   },
   "dependencies": {
-    "@vercel/functions": "^3.11.1",
-    "ioredis": "^6.0.0",
+    "ably": "^1.2.50",
     "next": "^15.5.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "ws": "^8.22.2"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
