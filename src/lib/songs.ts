@@ -7,6 +7,7 @@ export type Song = {
   film: string;
   language: string;
   lyrics: string | null;
+  chordPro?: string | null;
 };
 
 const songs = songsData as Song[];
@@ -16,7 +17,8 @@ for (const song of songs) {
     throw new Error(`Invalid or duplicate song number: ${song.number}`);
   }
   if (!song.title.trim() || !song.language.trim() ||
-      (song.lyrics !== null && !song.lyrics.trim())) {
+      (song.lyrics !== null && !song.lyrics.trim()) ||
+      (song.chordPro != null && !song.chordPro.trim())) {
     throw new Error(`Incomplete song ${song.number}`);
   }
   numbers.add(song.number);

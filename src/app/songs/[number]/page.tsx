@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getSong, publishedSongs } from "@/lib/songs";
 import Preferences from "@/components/Preferences";
+import LiveControls from "@/components/LiveControls";
 
 export function generateStaticParams() {
   return publishedSongs.map((song) => ({ number: String(song.number) }));
@@ -23,7 +24,7 @@ export default async function SongPage({ params }: { params: Promise<{ number: s
         <p className="hindi" lang="hi">{song.titleHindi}</p>
         <p className="muted">{song.film} · Hindi (Roman script)</p>
       </div>
-      <article className="lyrics" lang="hi-Latn">{song.lyrics}</article>
+      <LiveControls song={song.number} lyrics={song.lyrics ?? undefined} chordPro={song.chordPro} />
       <footer><Link href="/" className="back">← Back to all songs</Link></footer>
     </main>
   );
