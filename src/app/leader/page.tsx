@@ -6,6 +6,7 @@ import OwnerSetup from "@/components/OwnerSetup";
 import LeaderWorkspace from "@/components/LeaderWorkspace";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Tarang leader", robots: { index: false, follow: false } };
 
 export default async function LeaderPage() {
   const leader = await currentLeader();

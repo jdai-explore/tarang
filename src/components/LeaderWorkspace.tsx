@@ -59,7 +59,7 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
   }
   async function saveSong() {
     try {
-      await post("/api/private/library/", { number: Number(edit.number), title: edit.title, titleHindi: edit.title_hindi, film: edit.film, language: edit.language, lyrics: edit.lyrics, chordPro: edit.chord_pro });
+      await post("/api/private/library/", { id: edit.id, number: Number(edit.number), title: edit.title, titleHindi: edit.title_hindi, film: edit.film, language: edit.language, lyrics: edit.lyrics, chordPro: edit.chord_pro });
       setEdit({ language: "hi-Latn" });
       await load();
       setMessage("Song saved privately.");

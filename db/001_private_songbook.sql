@@ -49,3 +49,9 @@ CREATE TABLE IF NOT EXISTS tarang_sessions (
   created_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS tarang_invalid_lookups (
+  bucket text PRIMARY KEY,
+  attempts integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
