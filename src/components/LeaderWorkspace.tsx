@@ -23,6 +23,7 @@ export default function LeaderWorkspace({ owner, userId, signedInEmail }: { owne
   const [busy, setBusy] = useState("");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
+  const [syncStatus, setSyncStatus] = useState("Ready to broadcast");
   const lastSent = useRef(0);
   const controlAt = useRef(0);
   const [snapshotAt, setSnapshotAt] = useState(0);
@@ -76,6 +77,7 @@ export default function LeaderWorkspace({ owner, userId, signedInEmail }: { owne
       const result = await post("/api/private/live/", { playlistId });
       controlAt.current = performance.now();
       setActive({ code: result.code, epoch: result.epoch, song: result.state.song });
+      setSyncStatus("Broadcast confirmed");
       show("live"); await load();
       return `Session ${result.code} is live. Share this code with followers.`;
     });
@@ -85,6 +87,7 @@ export default function LeaderWorkspace({ owner, userId, signedInEmail }: { owne
       const result = await post(`/api/private/live/${session.code}/`, { action: "takeover" });
       controlAt.current = performance.now();
       setActive({ code: session.code, epoch: result.epoch, song: session.song_number });
+      setSyncStatus("Ready to broadcast");
       await load(); return "You have control. Confirm the current song before scrolling.";
     });
   }
@@ -93,13 +96,14 @@ export default function LeaderWorkspace({ owner, userId, signedInEmail }: { owne
     await act("select", async () => {
       await post(`/api/private/live/${active.code}/`, { action: "select", epoch: active.epoch, song: songNumber, position: { line: 0, fraction: .35 } });
       setActive({ ...active, song: songNumber });
+      setSyncStatus("Broadcast confirmed");
       return `Song ${songNumber} is now visible to followers.`;
     });
   }
   async function scroll(songNumber: number, line: number) {
     if (!active) return;
-    try { await post(`/api/private/live/${active.code}/`, { action: "scroll", epoch: active.epoch, song: songNumber, position: { line, fraction: .35 } }); }
-    catch (error) { if ((error as Error & { status?: number }).status !== 409) setNotice({ text: `Scroll sync failed: ${(error as Error).message}`, error: true }); }
+    try { await post(`/api/private/live/${active.code}/`, { action: "scroll", epoch: active.epoch, song: songNumber, position: { line, fraction: .35 } }); setSyncStatus("Broadcast confirmed"); }
+    catch (error) { if ((error as Error & { status?: number }).status !== 409) { setSyncStatus("Broadcast failed"); setNotice({ text: `Scroll sync failed: ${(error as Error).message}`, error: true }); } }
   }
   async function end() {
     if (!active || !window.confirm(`End session ${active.code}? Followers will lose access to the live song.`)) return;
@@ -144,7 +148,7 @@ export default function LeaderWorkspace({ owner, userId, signedInEmail }: { owne
       {loading ? <section className="leader-card"><p>Loading sessions…</p></section> : !hasSession ? <section className="leader-card leader-empty"><h3>Ready when you are.</h3><p>Prepare a setlist, then start it here. Followers see nothing until you go live.</p>{playlists.length ? playlists.map((item) => <div className="leader-row" key={item.id}><div><strong>{item.name}</strong><small>{item.songs.length} songs</small></div><button type="button" className="leader-primary" disabled={!!busy || !item.songs.length} onClick={() => void start(item.id)}>{busy === "start" ? "Starting…" : "Start session"}</button></div>) : <button type="button" className="leader-primary" onClick={() => show("library")}>Create a setlist</button>}</section> : <>
         <section className="leader-card"><div className="leader-card-heading"><div><span className="leader-kicker">Join code</span><strong className="leader-code">{active?.code || sessions[0].code}</strong></div><span className="leader-pill">{active ? "You are in control" : "Awaiting leader"}</span></div><p className="leader-hint">Share the code with followers. Only the selected song is released.</p>
           {!active && sessions.map((session) => <div className="leader-row" key={session.code}><div><strong>{session.code}</strong><small>Song {session.song_number ?? "—"} · {session.leader_user_id === userId ? "your account" : "another leader"}</small></div><button type="button" className="leader-primary" disabled={!!busy} onClick={() => void takeover(session)}>{busy === "takeover" ? "Taking control…" : session.leader_user_id === userId ? "Resume leading" : "Take over"}</button></div>)}
-          {active && <button type="button" className="leader-danger" disabled={!!busy} onClick={() => void end()}>{busy === "end" ? "Ending…" : "End session"}</button>}
+          {active && <><p className="leader-hint" role="status">Sync: {syncStatus}</p><button type="button" className="leader-danger" disabled={!!busy} onClick={() => void end()}>{busy === "end" ? "Ending…" : "End session"}</button></>}
         </section>
         {active && <><section className="leader-card"><div className="leader-card-heading"><div><span className="leader-kicker">Broadcast</span><h3>Choose the song</h3></div><span className="leader-pill">{playlist?.name ?? "Setlist"}</span></div><div className="leader-song-grid">{playlist?.songs.map((song) => <button type="button" className="leader-song-choice" aria-pressed={active.song === song.number} key={song.id} disabled={!!busy} onClick={() => void selectSong(song.number)}><span>{String(song.number).padStart(2, "0")}</span><strong>{song.title}</strong></button>)}</div></section>
           <section className="leader-card"><div className="leader-card-heading"><div><span className="leader-kicker">Scroll sync</span><h3>{current?.title ?? "Select a song"}</h3></div><span className="leader-pill">{current ? `Song ${current.number}` : "No song"}</span></div><p className="leader-hint">Scroll the lyrics below to move followers with you.</p>{current && <div className="leader-lyrics lyric-lines" onScroll={(event) => { if (Date.now() - lastSent.current < 1200) return; lastSent.current = Date.now(); const container = event.currentTarget; const nodes = [...container.querySelectorAll(".lyric-line")]; let line = 0; for (let i = 0; i < nodes.length; i++) if (nodes[i].getBoundingClientRect().top <= container.getBoundingClientRect().top + container.clientHeight * .35) line = i; void scroll(current.number, line); }}>{current.lyrics.split("\n").map((line, index) => <span className="lyric-line" key={index}>{line || "\u00a0"}</span>)}</div>}</section></>}
