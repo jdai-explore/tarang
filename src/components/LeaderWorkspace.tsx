@@ -25,6 +25,7 @@ export default function LeaderWorkspace({ owner, userId, signedInEmail }: { owne
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
   const [syncStatus, setSyncStatus] = useState("Ready to broadcast");
   const lastSent = useRef(0);
+  const busyRef = useRef(false);
   const controlAt = useRef(0);
   const [snapshotAt, setSnapshotAt] = useState(0);
 
@@ -41,7 +42,8 @@ export default function LeaderWorkspace({ owner, userId, signedInEmail }: { owne
       setSongs(nextSongs); setPlaylists(nextPlaylists); setSessions(nextSessions); setSnapshotAt(requestedAt);
       if (owner) {
         const response = await fetch("/api/admin/leaders/", { cache: "no-store" });
-        if (response.ok) setGrants(await response.json());
+        if (!response.ok) throw new Error("Could not load approved leaders.");
+        setGrants(await response.json());
       }
     } catch (error) { setNotice({ text: (error as Error).message, error: true }); }
     finally { setLoading(false); }
@@ -64,11 +66,12 @@ export default function LeaderWorkspace({ owner, userId, signedInEmail }: { owne
     return result;
   }
   async function act(key: string, task: () => Promise<string>) {
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(key); setNotice(null);
     try { setNotice({ text: await task() }); }
     catch (error) { setNotice({ text: (error as Error).message, error: true }); }
-    finally { setBusy(""); }
+    finally { busyRef.current = false; setBusy(""); }
   }
   function show(next: View) { setView(next); setNotice(null); }
 
