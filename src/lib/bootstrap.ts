@@ -1,7 +1,7 @@
 import "server-only";
 import { sql } from "./db";
 import songs from "../../content/songs.json";
-import type { Song } from "./songs";
+type Song = { number: number; title: string; titleHindi: string; film: string; language: string; lyrics: string | null; chordPro?: string | null };
 
 const statements = [
   `CREATE TABLE IF NOT EXISTS tarang_leaders (email text PRIMARY KEY, user_id text UNIQUE, approved_by text NOT NULL, approved_at timestamptz NOT NULL DEFAULT now(), revoked_at timestamptz)`,

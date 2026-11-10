@@ -2,7 +2,7 @@ import "server-only";
 import { createHttpClient } from "@ably/pubsub-server";
 import { randomBytes } from "node:crypto";
 import { sql } from "./db";
-import type { Position } from "./live";
+type Position = { line: number; fraction: number };
 
 type SessionRow = { id: number; code: string; playlist_id: number; active_song_id: number | null; song_number: number | null; line: number; fraction: number; revision: number; leader_user_id: string; leader_epoch: number; expires_at: string };
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -18,7 +18,7 @@ function ably() {
   return createHttpClient({ key });
 }
 function state(row: SessionRow) {
-  return { code: row.code, song: row.song_number, position: { line: row.line, fraction: row.fraction }, seq: row.revision, expiresAt: row.expires_at };
+  return { code: row.code, song: row.song_number, position: { line: row.line, fraction: row.fraction }, seq: Number(row.revision), expiresAt: row.expires_at };
 }
 
 export async function activeSession(code: string) {
@@ -41,7 +41,7 @@ export async function startSession(playlistId: number, leaderId: string) {
     if (rows.length) {
       const result = { ...rows[0], song_number: songs[0].number };
       await ably().channels.get(channel(code)).publish("state", state(result));
-      return { code, epoch: result.leader_epoch, state: state(result) };
+      return { code, epoch: Number(result.leader_epoch), state: state(result) };
     }
   }
   throw new Error("Could not allocate a session code");
@@ -50,7 +50,7 @@ export async function startSession(playlistId: number, leaderId: string) {
 export async function takeOver(code: string, leaderId: string) {
   const rows = await sql()`UPDATE tarang_sessions SET leader_user_id = ${leaderId}, leader_epoch = leader_epoch + 1,
     revision = revision + 1 WHERE code = ${code} AND status = 'live' AND expires_at > now() RETURNING *` as SessionRow[];
-  return rows.length ? { epoch: rows[0].leader_epoch, code } : null;
+  return rows.length ? { epoch: Number(rows[0].leader_epoch), code } : null;
 }
 
 export async function updatePrivateSession(code: string, leaderId: string, epoch: number, songNumber: number, position: Position) {

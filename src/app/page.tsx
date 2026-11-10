@@ -1,7 +1,5 @@
-import { publishedSongs } from "@/lib/songs";
-import SongList from "@/components/SongList";
-import LiveControls from "@/components/LiveControls";
+import PrivateReader from "@/components/PrivateReader";
 
 export default function Home() {
-  return <><SongList songs={publishedSongs} /><div className="shell"><LiveControls /></div></>;
+  return <PrivateReader />;
 }
