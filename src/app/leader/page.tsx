@@ -16,8 +16,7 @@ export default async function LeaderPage() {
       <p><Link href="/">Back to Tarang</Link></p>
     </main>;
   }
-  return <main className="shell"><h1>Leader workspace</h1>
-    <p>Signed in as {leader.email}{leader.owner ? " (owner)" : ""}.</p>
-    <LeaderWorkspace owner={leader.owner} userId={leader.id} />
+  return <main className="leader-shell">
+    <LeaderWorkspace owner={leader.owner} userId={leader.id} signedInEmail={leader.email} />
   </main>;
 }
