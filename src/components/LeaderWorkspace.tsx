@@ -12,6 +12,7 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
   const [songs, setSongs] = useState<Song[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionSnapshotAt, setSessionSnapshotAt] = useState(0);
   const [grants, setGrants] = useState<Grant[]>([]);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -21,9 +22,11 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
   const [message, setMessage] = useState("");
   const lastSent = useRef(0);
   const starting = useRef(false);
+  const controlEstablishedAt = useRef(0);
   const [isStarting, setIsStarting] = useState(false);
 
   const load = useCallback(async () => {
+    const requestedAt = performance.now();
     try {
       const [songResponse, playlistResponse, sessionResponse] = await Promise.all([
         fetch("/api/private/library/", { cache: "no-store" }),
@@ -34,11 +37,11 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
       setSongs(await songResponse.json());
       setPlaylists(await playlistResponse.json());
       setSessions(await sessionResponse.json());
+      setSessionSnapshotAt(requestedAt);
       if (owner) {
         const grantsResponse = await fetch("/api/admin/leaders/", { cache: "no-store" });
         if (grantsResponse.ok) setGrants(await grantsResponse.json());
       }
-      setMessage("");
     } catch { setMessage("Private library not ready. The owner must prepare it first."); }
   }, [owner]);
 
@@ -46,12 +49,13 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
 
   useEffect(() => {
     if (!active || !sessions.length) return;
+    if (sessionSnapshotAt <= controlEstablishedAt.current) return;
     const session = sessions.find((item) => item.code === active.code);
     if (session && (session.leader_user_id !== userId || session.leader_epoch !== active.epoch)) {
       setActive(null);
       setMessage("Another leader took over, or the session ended.");
     }
-  }, [sessions, active, userId]);
+  }, [sessions, sessionSnapshotAt, active, userId]);
 
   async function post(path: string, body: unknown) {
     const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -83,6 +87,7 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
     setIsStarting(true);
     try {
       const result = await post("/api/private/live/", { playlistId });
+      controlEstablishedAt.current = performance.now();
       setActive({ code: result.code, epoch: result.epoch, song: result.state.song });
       await load(); setMessage(`Live code: ${result.code}. Share only this code with followers.`);
     } catch (error) { await load(); setMessage((error as Error).message); }
@@ -91,6 +96,7 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
   async function takeover(session: Session) {
     try {
       const result = await post(`/api/private/live/${session.code}/`, { action: "takeover" });
+      controlEstablishedAt.current = performance.now();
       setActive({ code: session.code, epoch: result.epoch, song: session.song_number });
       setMessage("You are now the active leader. Confirm the song and position before scrolling.");
       await load();
