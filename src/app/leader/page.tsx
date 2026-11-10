@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getAuth } from "@/lib/auth";
 import { currentLeader } from "@/lib/leaders";
 import LeaderSignIn from "@/components/LeaderSignIn";
+import OwnerSetup from "@/components/OwnerSetup";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function LeaderPage() {
   }
   return <main className="shell"><h1>Leader workspace</h1>
     <p>Signed in as {leader.email}{leader.owner ? " (owner)" : ""}.</p>
+    {leader.owner && <OwnerSetup />}
     <p>The private library and leader handoff are being built. Public sessions remain on the existing system until migration is verified.</p>
   </main>;
 }
