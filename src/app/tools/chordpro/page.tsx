@@ -14,7 +14,7 @@ export default function ChordProTool() {
   return <main className="shell tool-page">
     <Link className="back" href="/">← Song list</Link>
     <h1>ChordPro paste preview</h1>
-    <p>Paste text with chords written as <code>[Am]</code> before words. Section headings are converted to comments. Review the result, then copy it into a song's <code>chordPro</code> field in <code>content/songs.json</code>. Plain lyrics cannot supply missing chords.</p>
+    <p>Paste text with chords written as <code>[Am]</code> before words. Section headings are converted to comments. Review the result, then copy it into a song’s ChordPro field in the private leader library. Plain lyrics cannot supply missing chords.</p>
     <label htmlFor="chord-input">Paste chord-marked text</label>
     <textarea id="chord-input" value={input} onChange={(event) => setInput(event.target.value)} rows={12} />
     <h2>Preview</h2>

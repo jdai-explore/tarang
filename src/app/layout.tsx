@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Tarang | Jam songbook",
-  description: "Find your song and sing along at the jam.",
+  description: "Join a live Tarang session and follow the song together.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

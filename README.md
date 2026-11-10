@@ -1,21 +1,29 @@
-# tarang
+# Tarang
 
-A mobile songbook for live jamming sessions. The public site shows numbered songs with supplied lyrics, search, a dark/light theme, and adjustable lyric text size.
+Tarang is a mobile live songbook for non-commercial jamming sessions. Approved Gmail leaders maintain a private song library and ordered playlists. One leader controls each live session; followers join with a code and receive only the current song and synchronized position. Followers do not sign in. Light/dark mode, text size, and chord visibility remain personal preferences.
 
-## Run locally
+## Setup
 
-Install Node.js 20 or newer, then run `npm install` and `npm run dev`. Open `http://localhost:3000`. For live sessions, set `ABLY_API_KEY` on the server. Without it, the independent songbook still works and live controls are hidden.
+Use Node.js 22 or newer. Install with `npm ci` and run `npm run build` before deploying. The app needs these server-side Vercel variables (never commit their values or give them a `NEXT_PUBLIC_` prefix):
 
-## Update songs
+- `DATABASE_URL`: connected Neon Postgres database.
+- `NEON_AUTH_BASE_URL`: Neon Managed Auth endpoint.
+- `NEON_AUTH_COOKIE_SECRET`: random 32+ character cookie-signing key.
+- `TARANG_OWNER_EMAIL`: the verified Gmail account that may approve or revoke other leaders.
+- `ABLY_API_KEY`: Ably Pub/Sub key for live follower updates.
 
-Edit `content/songs.json`. Each entry needs a unique positive `number`, a `title`, `titleHindi`, `film`, `language`, and `lyrics`. Songs with `lyrics: null` are drafts and are omitted from the public site. Lyric line breaks can be written as `\n` inside the JSON string. Optional `chordPro` text uses `[Am]` chord markers; preview pasted chord text at `/tools/chordpro/` and review it before committing. Only publish lyrics and chords you have permission to use. Run `npm run build` to validate and build the site.
+Configure both the production origin and the stable preview origin under **Neon Console → Auth → Configuration → Domains**. This project uses Neon's shared, Neon-branded Google OAuth app by explicit choice; Neon recommends custom OAuth credentials for production. Only the configured owner and explicitly approved leaders may access the library or control sessions. Google sign-in alone grants no leader authority.
 
-## Deploy
+The private schema is in `db/001_private_songbook.sql`. Apply it to the connected Neon database before using the private workspace. The initial two songs were imported from the former public JSON file during migration; all subsequent songs must be entered through the leader workspace. The repository does not carry lyric bodies. Existing Git history and old deployment URLs can still contain previously published lyrics.
 
-The GitHub `main` branch deploys to the Tarang Vercel project at `tarang-gray.vercel.app`. The song pages are statically generated. Set `ABLY_API_KEY` as an encrypted Vercel environment variable for the server; never use a `NEXT_PUBLIC_` prefix or put the key in GitHub. The server issues subscribe-only Ably tokens to browsers. It publishes initial session state and leader updates to a session channel, while Ably sends those updates to followers. Review preview deployments before merging content changes. A session leader's private token is stored in that browser's local storage; share only the six-character join code. Sessions expire after eight hours. The leader sends a state heartbeat each minute so new followers can retrieve it from Ably's default two-minute history.
+## Use
 
-## Test live coordination
+Leaders sign in at `/leader/`, add songs, create an ordered playlist, and start a session. Share only the ten-character code. An approved leader can reopen the workspace and press **Resume leading**, or another approved leader can press **Take over**. Each takeover rotates a server-side control epoch so the previous leader's device can no longer update the session. End the session explicitly when done.
 
-After configuring Ably, test one leader and at least two followers on different browsers before an event. Ably's free plan currently allows 500 concurrent connections and 500 messages per second, counting deliveries to followers. The leader sends at most roughly one scroll update per 1.2 seconds. Plan for fewer than 500 total devices on the free tier, and measure real usage before an event; 500 followers plus the leader exceeds the free connection cap.
+Followers open `/`, enter the code, and see only the currently selected song. They can pause or resume following. Tarang stores the authoritative session in Neon and sends small state events through Ably; it does not send lyrics in Ably messages. Follower song APIs are live-session scoped and marked `private, no-store`.
 
-See `PLAN.md` for the roadmap and launch checks.
+## Event checks
+
+Before an event, test owner sign-in, an unapproved Google account, a second approved leader, takeover from another device, an old leader's rejected update, song change and scroll sync on Android and iPhone, reconnect after network loss, and end-session access denial. Measure connection and message use at realistic audience sizes. Ably's free-tier 500-connection cap does not accommodate 500 followers plus a leader; plan headroom or a paid tier for that size.
+
+See [PLAN.md](PLAN.md) for detailed design decisions and remaining launch checks.
