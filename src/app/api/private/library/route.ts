@@ -7,7 +7,8 @@ export async function GET() {
   if (!await currentLeader()) return Response.json({ error: "Forbidden" }, { status: 403 });
   const songs = await sql()`SELECT id, number, title, title_hindi, film, language, lyrics, chord_pro
     FROM tarang_songs ORDER BY number`;
-  return Response.json(songs, { headers: { "Cache-Control": "private, no-store" } });
+  return Response.json((songs as { id: string; [key: string]: unknown }[]).map((song) => ({ ...song, id: Number(song.id) })),
+    { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -25,6 +26,6 @@ export async function POST(request: Request) {
       ${typeof item.film === "string" ? item.film.slice(0, 200) : ""}, ${item.language.trim()}, ${item.lyrics}, ${item.chordPro ?? null})
     ON CONFLICT (number) DO UPDATE SET title = EXCLUDED.title, title_hindi = EXCLUDED.title_hindi,
       film = EXCLUDED.film, language = EXCLUDED.language, lyrics = EXCLUDED.lyrics, chord_pro = EXCLUDED.chord_pro,
-      updated_at = now() RETURNING id, number` as { id: number; number: number }[];
-  return Response.json(rows[0], { headers: { "Cache-Control": "no-store" } });
+      updated_at = now() RETURNING id, number` as { id: string; number: number }[];
+  return Response.json({ id: Number(rows[0].id), number: rows[0].number }, { headers: { "Cache-Control": "no-store" } });
 }

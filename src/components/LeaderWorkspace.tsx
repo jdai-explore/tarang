@@ -105,7 +105,7 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
   const current = songs.find((song) => song.number === active?.song);
   const currentPlaylist = playlists.find((playlist) => playlist.id === sessions.find((session) => session.code === active?.code)?.playlist_id);
 
-  return <div>
+  return <div className="leader-workspace">
     <button type="button" onClick={() => void authClient.signOut().then(() => location.reload())}>Sign out</button>
     <p role="status">{message}</p>
     {owner && <section className="live-panel"><h2>Approved leaders</h2>

@@ -8,7 +8,7 @@ type Context = { params: Promise<{ code: string }> };
 export async function GET(_request: Request, context: Context) {
   const session = await activeSession((await context.params).code.toUpperCase());
   if (!session) return Response.json({ error: "Session not found" }, { status: 404 });
-  return Response.json({ code: session.code, song: session.song_number, position: { line: session.line, fraction: session.fraction }, seq: session.revision }, { headers: { "Cache-Control": "private, no-store" } });
+  return Response.json({ code: session.code, song: session.song_number, position: { line: session.line, fraction: session.fraction }, seq: Number(session.revision) }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function POST(request: Request, context: Context) {

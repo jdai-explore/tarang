@@ -86,8 +86,14 @@ export default function PrivateReader() {
         setConnected(change.current === "connected");
         if (change.current === "connected") void refresh(code).catch(() => setError("Session unavailable"));
       });
-      void client.channels.get(`tarang:session:${code}`, { params: { rewind: "1" } })
-        .subscribe("state", (message) => {
+      const channel = client.channels.get(`tarang:session:${code}`, { params: { rewind: "1" } });
+      void channel.subscribe("ended", () => {
+        if (stopped) return;
+        sessionStorage.removeItem("tarang-join-code");
+        setSong(null); setState(null); setCode(""); setConnected(false);
+        setError("The leader ended this session.");
+      });
+      void channel.subscribe("state", (message) => {
           const next = message.data as State;
           if (!stopped && next?.code === code && Number.isFinite(next.seq) && next.seq > latest.current) {
             latest.current = next.seq;

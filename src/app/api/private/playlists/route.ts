@@ -9,7 +9,9 @@ export async function GET() {
     ORDER BY ps.position) FILTER (WHERE s.id IS NOT NULL), '[]'::json) AS songs
     FROM tarang_playlists p LEFT JOIN tarang_playlist_songs ps ON ps.playlist_id = p.id
     LEFT JOIN tarang_songs s ON s.id = ps.song_id GROUP BY p.id ORDER BY p.created_at DESC`;
-  return Response.json(playlists, { headers: { "Cache-Control": "private, no-store" } });
+  return Response.json((playlists as { id: string; songs: { id: string; number: number; title: string }[]; name: string }[])
+    .map((playlist) => ({ ...playlist, id: Number(playlist.id), songs: playlist.songs.map((song) => ({ ...song, id: Number(song.id) })) })),
+    { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -28,5 +30,5 @@ export async function POST(request: Request) {
     await sql()`INSERT INTO tarang_playlist_songs (playlist_id, song_id, position)
       VALUES (${playlistId}, ${body.songIds[i]}, ${i})`;
   }
-  return Response.json({ id: playlistId }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ id: Number(playlistId) }, { headers: { "Cache-Control": "no-store" } });
 }

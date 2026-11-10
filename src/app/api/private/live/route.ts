@@ -10,7 +10,9 @@ export async function GET() {
     s.line, s.fraction, g.number AS song_number FROM tarang_sessions s
     LEFT JOIN tarang_songs g ON g.id = s.active_song_id
     WHERE s.status = 'live' AND s.expires_at > now() ORDER BY s.created_at DESC`;
-  return Response.json(rows, { headers: { "Cache-Control": "private, no-store" } });
+  return Response.json((rows as { code: string; playlist_id: string; leader_user_id: string; leader_epoch: string; revision: string; line: number; fraction: number; song_number: number | null }[])
+    .map((row) => ({ ...row, playlist_id: Number(row.playlist_id), leader_epoch: Number(row.leader_epoch), revision: Number(row.revision) })),
+    { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function POST(request: Request) {
