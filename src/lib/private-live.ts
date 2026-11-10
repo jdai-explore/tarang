@@ -30,6 +30,8 @@ export async function activeSession(code: string) {
 }
 
 export async function startSession(playlistId: number, leaderId: string) {
+  const existing = await sql()`SELECT code FROM tarang_sessions WHERE status = 'live' AND expires_at > now() LIMIT 1` as { code: string }[];
+  if (existing.length) return { existing: existing[0].code };
   const songs = await sql()`SELECT g.id, g.number FROM tarang_playlist_songs p
     JOIN tarang_songs g ON g.id = p.song_id WHERE p.playlist_id = ${playlistId} ORDER BY p.position LIMIT 1` as { id: number; number: number }[];
   if (!songs.length) return null;
@@ -62,6 +64,21 @@ export async function updatePrivateSession(code: string, leaderId: string, epoch
     AND s.leader_user_id = ${leaderId} AND s.leader_epoch = ${epoch}
     AND g.number = ${songNumber} AND EXISTS (SELECT 1 FROM tarang_playlist_songs p
       WHERE p.playlist_id = s.playlist_id AND p.song_id = g.id)
+    RETURNING s.*, g.number AS song_number` as SessionRow[];
+  if (!rows.length) return null;
+  const result = state(rows[0]);
+  await ably().channels.get(channel(code)).publish("state", result);
+  return result;
+}
+
+export async function scrollPrivateSession(code: string, leaderId: string, epoch: number, songNumber: number, position: Position) {
+  if (!Number.isInteger(songNumber) || !Number.isInteger(position?.line) || position.line < 0 || position.line > 10000 ||
+      !Number.isFinite(position?.fraction) || position.fraction < 0 || position.fraction > 1) return null;
+  const rows = await sql()`UPDATE tarang_sessions s SET line = ${position.line}, fraction = ${position.fraction},
+    revision = s.revision + 1 FROM tarang_songs g
+    WHERE s.code = ${code} AND s.status = 'live' AND s.expires_at > now()
+    AND s.leader_user_id = ${leaderId} AND s.leader_epoch = ${epoch}
+    AND s.active_song_id = g.id AND g.number = ${songNumber}
     RETURNING s.*, g.number AS song_number` as SessionRow[];
   if (!rows.length) return null;
   const result = state(rows[0]);

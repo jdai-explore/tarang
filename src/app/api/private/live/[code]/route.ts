@@ -1,5 +1,5 @@
 import { currentLeader } from "@/lib/leaders";
-import { activeSession, endSession, takeOver, updatePrivateSession } from "@/lib/private-live";
+import { activeSession, endSession, scrollPrivateSession, takeOver, updatePrivateSession } from "@/lib/private-live";
 import { invalidLookupStatus } from "@/lib/lookup-limit";
 
 export const runtime = "nodejs";
@@ -27,8 +27,10 @@ export async function POST(request: Request, context: Context) {
     const ended = await endSession(code, leader.id, body.epoch);
     return ended ? Response.json({ ended: true }) : Response.json({ error: "Not active leader" }, { status: 409 });
   }
-  if (body.action === "update") {
-    const result = await updatePrivateSession(code, leader.id, body.epoch, body.song, body.position);
+  if (body.action === "select" || body.action === "scroll") {
+    const result = body.action === "select"
+      ? await updatePrivateSession(code, leader.id, body.epoch, body.song, body.position)
+      : await scrollPrivateSession(code, leader.id, body.epoch, body.song, body.position);
     return result ? Response.json(result) : Response.json({ error: "Not active leader or invalid song" }, { status: 409 });
   }
   return Response.json({ error: "Invalid action" }, { status: 400 });

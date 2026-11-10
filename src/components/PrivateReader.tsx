@@ -40,7 +40,12 @@ export default function PrivateReader() {
 
   const refresh = useCallback(async (sessionCode: string) => {
     const response = await fetch(`/api/private/live/${sessionCode}/`, { cache: "no-store" });
-    if (!response.ok) throw new Error("Session ended or unavailable");
+    if (response.status === 404) {
+      sessionStorage.removeItem("tarang-join-code");
+      setCode(""); setSong(null); setState(null); setConnected(false);
+      throw new Error("Session ended or unavailable");
+    }
+    if (!response.ok) throw new Error("Session temporarily unavailable");
     const next = await response.json() as State;
     if (next.seq < latest.current) return;
     latest.current = next.seq;

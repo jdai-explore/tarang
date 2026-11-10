@@ -23,5 +23,6 @@ export async function POST(request: Request) {
   const playlistId = body?.playlistId;
   if (!Number.isSafeInteger(playlistId) || playlistId < 1) return Response.json({ error: "Invalid playlist" }, { status: 400 });
   const result = await startSession(playlistId, leader.id);
+  if (result && "existing" in result) return Response.json({ error: `A live session already exists (${result.existing}). Resume or end it first.` }, { status: 409 });
   return result ? Response.json(result, { headers: { "Cache-Control": "no-store" } }) : Response.json({ error: "Playlist is empty" }, { status: 400 });
 }

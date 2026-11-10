@@ -20,6 +20,8 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
   const [active, setActive] = useState<{ code: string; epoch: number; song: number | null } | null>(null);
   const [message, setMessage] = useState("");
   const lastSent = useRef(0);
+  const starting = useRef(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -45,7 +47,7 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
   useEffect(() => {
     if (!active || !sessions.length) return;
     const session = sessions.find((item) => item.code === active.code);
-    if (!session || session.leader_user_id !== userId || session.leader_epoch !== active.epoch) {
+    if (session && (session.leader_user_id !== userId || session.leader_epoch !== active.epoch)) {
       setActive(null);
       setMessage("Another leader took over, or the session ended.");
     }
@@ -54,7 +56,7 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
   async function post(path: string, body: unknown) {
     const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error ?? "Request failed");
+    if (!response.ok) throw Object.assign(new Error(result.error ?? "Request failed"), { status: response.status });
     return result;
   }
   async function saveSong() {
@@ -76,11 +78,15 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
     catch (error) { setMessage((error as Error).message); }
   }
   async function start(playlistId: number) {
+    if (starting.current) return;
+    starting.current = true;
+    setIsStarting(true);
     try {
       const result = await post("/api/private/live/", { playlistId });
       setActive({ code: result.code, epoch: result.epoch, song: result.state.song });
       await load(); setMessage(`Live code: ${result.code}. Share only this code with followers.`);
-    } catch (error) { setMessage((error as Error).message); }
+    } catch (error) { await load(); setMessage((error as Error).message); }
+    finally { starting.current = false; setIsStarting(false); }
   }
   async function takeover(session: Session) {
     try {
@@ -90,12 +96,17 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
       await load();
     } catch (error) { setMessage((error as Error).message); }
   }
-  async function update(songNumber: number, line = 0) {
+  async function update(songNumber: number, line = 0, action: "select" | "scroll" = "select") {
     if (!active) return;
     try {
-      await post(`/api/private/live/${active.code}/`, { action: "update", epoch: active.epoch, song: songNumber, position: { line, fraction: .35 } });
+      await post(`/api/private/live/${active.code}/`, { action, epoch: active.epoch, song: songNumber, position: { line, fraction: .35 } });
       setActive({ ...active, song: songNumber });
-    } catch (error) { setActive(null); setMessage(`Control lost or update failed: ${(error as Error).message}`); }
+    } catch (error) {
+      const failure = error as Error & { status?: number };
+      if (action === "scroll" && failure.status === 409) return;
+      if (failure.status === 409) setActive(null);
+      setMessage(`Update failed: ${failure.message}`);
+    }
   }
   async function end() {
     if (!active) return;
@@ -127,7 +138,7 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
           const nodes = [...container.querySelectorAll(".lyric-line")];
           let line = 0;
           for (let i = 0; i < nodes.length; i++) if (nodes[i].getBoundingClientRect().top <= container.getBoundingClientRect().top + container.clientHeight * .35) line = i;
-          void update(current.number, line);
+          void update(current.number, line, "scroll");
         }}>{current.lyrics.split("\n").map((line, index) => <span className="lyric-line" key={index}>{line || "\u00a0"}</span>)}</div></>}
       </>}
     </section>
@@ -144,7 +155,8 @@ export default function LeaderWorkspace({ owner, userId }: { owner: boolean; use
       <button type="button" onClick={() => void saveSong()}>Save song</button>
     </section>
     <section className="live-panel"><h2>Playlists</h2>
-      {playlists.map((playlist) => <p key={playlist.id}>{playlist.name} ({playlist.songs.length} songs) <button type="button" onClick={() => void start(playlist.id)}>Start live session</button></p>)}
+      {playlists.map((playlist) => <p key={playlist.id}>{playlist.name} ({playlist.songs.length} songs) <button type="button" disabled={isStarting || sessions.length > 0} onClick={() => void start(playlist.id)}>Start live session</button></p>)}
+      {sessions.length > 0 && <p>Resume or end the current live session before starting another.</p>}
       <input aria-label="New playlist name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Playlist name" />
       <p>Select songs in performance order:</p>
       {songs.map((song) => <button type="button" key={song.id} aria-pressed={selected.includes(song.id)} onClick={() => setSelected(selected.includes(song.id) ? selected.filter((id) => id !== song.id) : [...selected, song.id])}>{selected.includes(song.id) ? `${selected.indexOf(song.id) + 1}. ` : "+ "}{song.title}</button>)}
