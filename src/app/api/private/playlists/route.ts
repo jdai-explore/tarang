@@ -20,15 +20,24 @@ export async function POST(request: Request) {
   if (!leader) return Response.json({ error: "Forbidden" }, { status: 403 });
   const body = await request.json().catch(() => null);
   if (typeof body?.name !== "string" || !body.name.trim() || body.name.length > 100 ||
-      !Array.isArray(body.songIds) || body.songIds.length > 200 ||
+      !Array.isArray(body.songIds) || body.songIds.length < 1 || body.songIds.length > 200 ||
       !body.songIds.every((id: unknown) => Number.isSafeInteger(id) && (id as number) > 0) ||
       new Set(body.songIds).size !== body.songIds.length)
     return Response.json({ error: "Invalid playlist" }, { status: 400 });
+  for (const id of body.songIds as number[]) {
+    const found = await sql()`SELECT id FROM tarang_songs WHERE id = ${id} LIMIT 1` as { id: number }[];
+    if (!found.length) return Response.json({ error: "Playlist contains an unavailable song" }, { status: 400 });
+  }
   const rows = await sql()`INSERT INTO tarang_playlists (name, created_by) VALUES (${body.name.trim()}, ${leader.id}) RETURNING id` as { id: number }[];
   const playlistId = rows[0].id;
-  for (let i = 0; i < body.songIds.length; i++) {
-    await sql()`INSERT INTO tarang_playlist_songs (playlist_id, song_id, position)
-      VALUES (${playlistId}, ${body.songIds[i]}, ${i})`;
+  try {
+    for (let i = 0; i < body.songIds.length; i++) {
+      await sql()`INSERT INTO tarang_playlist_songs (playlist_id, song_id, position)
+        VALUES (${playlistId}, ${body.songIds[i]}, ${i})`;
+    }
+    return Response.json({ id: Number(playlistId) }, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    await sql()`DELETE FROM tarang_playlists WHERE id = ${playlistId} AND created_by = ${leader.id}`;
+    return Response.json({ error: "Could not save playlist" }, { status: 409 });
   }
-  return Response.json({ id: Number(playlistId) }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getAuth } from "@/lib/auth";
 import { currentLeader } from "@/lib/leaders";
 import LeaderSignIn, { LeaderSignOut } from "@/components/LeaderSignIn";
-import OwnerSetup from "@/components/OwnerSetup";
 import LeaderWorkspace from "@/components/LeaderWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +18,6 @@ export default async function LeaderPage() {
   }
   return <main className="shell"><h1>Leader workspace</h1>
     <p>Signed in as {leader.email}{leader.owner ? " (owner)" : ""}.</p>
-    {leader.owner && <OwnerSetup />}
     <LeaderWorkspace owner={leader.owner} userId={leader.id} />
   </main>;
 }
