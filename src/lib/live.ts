@@ -1,4 +1,4 @@
-import Ably from "ably";
+import { createHttpClient } from "@ably/pubsub-server";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { publishedSongs } from "./songs";
 
@@ -6,12 +6,12 @@ export type Position = { line: number; fraction: number };
 export type LiveState = { code: string; song: number; position: Position; seq: number; updatedAt: number; expiresAt: number };
 
 const sessionMs = 8 * 60 * 60 * 1000;
-let rest: Ably.Rest | null = null;
+let rest: ReturnType<typeof createHttpClient> | null = null;
 
 function ably() {
   const key = process.env.ABLY_API_KEY;
   if (!key) throw new Error("ABLY_API_KEY is not configured");
-  return rest ?? (rest = new Ably.Rest({ key }));
+  return rest ?? (rest = createHttpClient({ key }));
 }
 
 function channel(code: string) { return `tarang:session:${code}`; }

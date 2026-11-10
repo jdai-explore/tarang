@@ -6,18 +6,23 @@ import type { LiveState, Position } from "@/lib/live";
 import { parseChordPro } from "@/lib/chordpro";
 
 declare global {
-  interface Window { Ably?: typeof import("ably") }
+  interface Window { AblyPubSub?: { createClient: (options: { authUrl: string }) => LiveClient } }
 }
 
-let ablyLoader: Promise<typeof import("ably")> | undefined;
+type LiveClient = {
+  channels: { get: (name: string, options: { params: { rewind: string } }) => { subscribe: (name: string, listener: (message: { data: unknown }) => void) => Promise<unknown> } };
+  connection: { on: (listener: (change: { current: string }) => void) => void };
+  close: () => void;
+};
+let ablyLoader: Promise<NonNullable<Window["AblyPubSub"]>> | undefined;
 function loadAbly() {
-  if (window.Ably) return Promise.resolve(window.Ably);
+  if (window.AblyPubSub) return Promise.resolve(window.AblyPubSub);
   if (!ablyLoader) ablyLoader = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = "https://cdn.ably.com/lib/ably.min-2.30.0.js";
-    script.integrity = "sha384-rEFIsedVIWDtgbXX8tgLdt3FqyhqXcyab7ICHpdt2UErA00K7lzuf2pCsBnygjZ/";
+    script.src = "https://cdn.ably.com/lib/ably.min-3.0.0.js";
+    script.integrity = "sha384-D4xqp6PP/a42kW75FzAoNwwO+jjp6xhkee/1ScepcD40gyt7N+3oNb3Cs3T6UVQF";
     script.crossOrigin = "anonymous";
-    script.onload = () => window.Ably ? resolve(window.Ably) : reject(new Error("Ably SDK did not load"));
+    script.onload = () => window.AblyPubSub ? resolve(window.AblyPubSub) : reject(new Error("Ably SDK did not load"));
     script.onerror = () => reject(new Error("Could not load Ably SDK"));
     document.head.append(script);
   });
@@ -77,11 +82,11 @@ export default function LiveControls({ song, lyrics, chordPro }: { song?: number
   useEffect(() => {
     if (!member || !available) return;
     let stopped = false;
-    let client: import("ably").Realtime | null = null;
+    let client: LiveClient | null = null;
     setStatus("Connecting…");
-    void loadAbly().then((Ably) => {
+    void loadAbly().then((AblyPubSub) => {
       if (stopped) return;
-      client = new Ably.Realtime({ authUrl: `/api/live/${member.code}/auth/` });
+      client = AblyPubSub.createClient({ authUrl: `/api/live/${member.code}/auth/` });
       const channel = client.channels.get(`tarang:session:${member.code}`, { params: { rewind: "1" } });
       client.connection.on((change) => {
         if (stopped) return;
