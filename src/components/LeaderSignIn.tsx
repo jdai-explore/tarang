@@ -7,3 +7,7 @@ export default function LeaderSignIn() {
     Sign in with Google
   </button>;
 }
+
+export function LeaderSignOut() {
+  return <button type="button" onClick={() => void authClient.signOut().then(() => location.reload())}>Sign out</button>;
+}
