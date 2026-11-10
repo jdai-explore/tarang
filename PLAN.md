@@ -19,10 +19,10 @@ The numbered list, search, reader, light/dark mode, and text-size preference are
 ## Architecture and free-tier feasibility
 
 - Keep songs in reviewed GitHub files and prerender public song pages. Serve lyrics and assets from Vercel's CDN; send only small coordination events through the live channel.
-- Remove static `output: "export"` when introducing a Vercel Function for WebSocket sessions. Keep song pages statically generated within the normal Next.js deployment.
-- Prototype WebSockets on Vercel Functions. Hobby currently supports them, but connections close at the function's maximum duration (currently 300 seconds), requiring reconnect and state resync.
-- Use a shared store with pub/sub across function instances for the current song, scroll position, session expiry, and broadcast. In-memory state will not reliably serve all participants. Check current free-tier capacity and terms of Redis or another managed real-time provider before choosing one.
-- Allow one leader per session. Throttle scroll updates to roughly 2–4 per second while moving; send song changes immediately. Transmit a section/line anchor and fractional progress, rather than raw pixels, to account for different viewports and text sizes.
+- Keep song pages statically generated within the Next.js deployment. Vercel Functions handle session creation, follower token requests, and leader updates; browser subscriptions connect directly to Ably.
+- Use Ably Realtime Pub/Sub for leader-to-follower broadcast. Vercel Functions create sessions, issue subscribe-only browser tokens, and publish leader updates. The Ably API key stays server-side. Ably LiveSync is database-to-client replication and is not needed for this flow.
+- Store current state as the latest message on each Ably session channel. The leader sends a heartbeat every minute to stay inside Ably's default two-minute message history for late joiners. Ably handles browser reconnection. A private signed leader token authorizes updates through Vercel.
+- Allow one leader per session. Throttle scroll updates to roughly one every 1.2 seconds while moving on Ably's free tier; send song changes immediately. Transmit a line anchor and fractional progress, rather than raw pixels, to account for different viewports and text sizes. Ably's free 500-connection and 500-message/second limits do not cover 500 followers plus a leader; keep headroom and load-test at the intended event size.
 - Add sequence numbers to discard stale events. New or reconnected devices load a snapshot before following further events. Expire idle sessions and rotate leader tokens per event.
 
 ## Content workflow
@@ -33,11 +33,11 @@ Add optional ChordPro text per song and a viewer that can hide chords. First sup
 
 ## Build sequence
 
-1. **Live prototype:** Choose a shared-state service after checking its free-tier connection and message limits. Build leader/follower song selection and position broadcast, reconnect/resync, and protected leader actions.
+1. **Live prototype:** Use Ably Pub/Sub for leader/follower song selection and position broadcast, reconnect/resync, and protected leader actions. Verify the current free-tier connection and message limits against the intended event size.
 2. **Product integration:** Add start/join/leave controls, follow status, resume-following, and an accessible leader control surface. Preserve independent reading.
 3. **ChordPro:** Extend and validate the content schema, render optional chords, and add the reviewed paste-conversion workflow.
 4. **Deployment:** GitHub `main` is connected to Vercel and serves `tarang-gray.vercel.app`. Set live-service credentials in Vercel, verify the production deployment, and review previews before merging content changes.
-5. **Event readiness:** Test Android Chrome, Samsung Internet, and iPhone Safari; varied viewport and text sizes; screen sleep and network changes; leader disconnect/rejoin; and 200–500 connected followers at realistic scroll rates. Measure latency, reconnect time, delivery consistency, and provider usage before deciding on paid capacity.
+5. **Event readiness:** Test Android Chrome, Samsung Internet, and iPhone Safari; varied viewport and text sizes; screen sleep and network changes; leader disconnect/rejoin; and 200–400 connected followers at realistic scroll rates. Measure latency, reconnect time, delivery consistency, and Ably usage. A 500-follower event needs capacity above the free connection cap.
 
 ## Later possibilities
 
