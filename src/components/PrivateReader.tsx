@@ -83,12 +83,13 @@ export default function PrivateReader() {
     if (!code) return;
     let stopped = false;
     let client: Client | undefined;
+    let subscribed = false;
     void ablySdk().then((sdk) => {
       if (stopped) return;
       client = sdk.createClient({ authUrl: `/api/private/live/${code}/auth/` });
       client.connection.on((change) => {
         if (stopped) return;
-        setConnected(change.current === "connected");
+        setConnected(subscribed && change.current === "connected");
         if (change.current === "connected") void refresh(code).catch(() => setError("Session unavailable"));
       });
       const channel = client.channels.get(`tarang:session:${code}`, { params: { rewind: "1" } });
@@ -105,7 +106,12 @@ export default function PrivateReader() {
             setState(next);
             if (next.song !== songNumber.current) void refresh(code).catch(() => setError("Could not refresh the current song"));
           }
-        }).catch(() => { if (!stopped) setConnected(false); });
+        }).then(() => {
+          if (stopped) return;
+          subscribed = true;
+          setConnected(true);
+          void refresh(code).catch(() => setError("Could not refresh the current song"));
+        }).catch(() => { if (!stopped) { setConnected(false); setError("Live sync unavailable. Rejoin the session to retry."); } });
     }).catch(() => { if (!stopped) setConnected(false); });
     return () => { stopped = true; client?.close(); };
   }, [code, refresh]);

@@ -1,6 +1,6 @@
 import "server-only";
 import { createHttpClient } from "@ably/pubsub-server";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "./db";
 type Position = { line: number; fraction: number };
 
@@ -104,5 +104,9 @@ export async function currentSong(code: string) {
 
 export async function subscriberTokenFor(code: string) {
   if (!await activeSession(code)) return null;
-  return ably().auth.createTokenRequest({ capability: JSON.stringify({ [channel(code)]: ["subscribe"] }), ttl: 5 * 60 * 1000 });
+  return ably().auth.createTokenRequest({
+    clientId: `follower:${randomUUID()}`,
+    capability: JSON.stringify({ [channel(code)]: ["subscribe"] }),
+    ttl: 5 * 60 * 1000,
+  });
 }
