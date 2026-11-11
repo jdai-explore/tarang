@@ -102,7 +102,11 @@ export async function currentSong(code: string) {
   return rows[0] ?? null;
 }
 
-export async function subscriberTokenFor(code: string) {
+export async function subscriberTokenFor(code: string, followerId: string) {
   if (!await activeSession(code)) return null;
-  return ably().auth.createTokenRequest({ capability: JSON.stringify({ [channel(code)]: ["subscribe"] }), ttl: 5 * 60 * 1000 });
+  return ably().auth.createTokenRequest({
+    clientId: `follower:${followerId}`,
+    capability: JSON.stringify({ [channel(code)]: ["subscribe"] }),
+    ttl: 5 * 60 * 1000,
+  });
 }
